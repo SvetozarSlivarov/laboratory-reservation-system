@@ -38,6 +38,12 @@ public class Laboratory {
         return id;
     }
 
+    void update(String name, String location, Boolean enabled) {
+        if (name != null) this.name = name.strip();
+        if (location != null) this.location = location.strip();
+        if (enabled != null) this.enabled = enabled;
+    }
+
     public String getName() {
         return name;
     }

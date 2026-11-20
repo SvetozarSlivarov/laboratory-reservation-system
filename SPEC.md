@@ -38,34 +38,40 @@ Use JSON request and response DTOs, with Bean Validation and a consistent proble
 | GET /api/auth/me | Return the current user's ID, email and role |
 | POST /api/auth/logout | End the current session |
 | GET /api/laboratories | Students see enabled entries, staff see all |
+| GET /api/laboratories/{id} | Students see enabled laboratories, staff can also see disabled laboratories |
 | GET /api/laboratories/{id}/workstations | Students see enabled entries in enabled labs, staff see all entries in the lab |
 | POST /api/laboratories | Staff create a laboratory |
 | PATCH /api/laboratories/{id} | Staff edit name, location or enabled status |
 | POST /api/laboratories/{id}/workstations | Staff create a workstation |
 | PATCH /api/workstations/{id} | Staff edit code, capabilities or enabled status |
-| GET /api/availability?from=…&to=…&laboratoryId=… | Students search free slots within a bounded window, optionally by laboratory |
-| POST /api/bookings | Students submit workstation ID and slot start, with owner and end derived by the server |
+| GET /api/availability?from=…&to=…&laboratoryId=… | Students search free slots within a bounded window, optionally by laboratory. Each result includes the workstation and slot interval. |
+| POST /api/bookings | Students submit workstationId and startsAt. The server derives the owner and end. An optional endsAt must match the derived end. |
 | GET /api/bookings/me | Students list their own current and past bookings, including cancellations |
+| GET /api/bookings/{id} | Students retrieve their own booking |
 | POST /api/bookings/{id}/cancel | Students cancel their own future booking |
 | POST /api/recommendations | Students request a slot recommendation using the availability filters and an optional plain-text preference |
 
 Use same-origin cookie sessions and CSRF protection for browser writes. Hash local passwords with Spring Security. Identify Google accounts by provider subject and require a verified email for first login. To link Google to an existing account, first sign in to that account and then complete Google sign-in with a matching verified email. Reject anonymous email collisions. Keep credentials outside source control.
 
+Catalog creation requires an explicit enabled flag. PATCH leaves omitted and null fields unchanged. Send an empty capabilities string to clear workstation capabilities.
+
 ## Gemini workstation recommendation
 
 The recommendation helps a student choose among available slots using preferences such as a workstation with particular software. Query availability first and order candidates by start instant and workstation ID. Send at most 20 candidates with request-local IDs, slot times, laboratory names and workstation capabilities, plus an optional preference capped at 250 characters. Treat capabilities and preference text as untrusted data. The UI asks users to provide equipment and timing preferences only. Exclude account identifiers, email, booking history and credentials from the prompt. Use one server-side call to a configurable Gemini model supporting structured JSON output.
 
-Require an object containing one candidate ID from the submitted set. Reject malformed JSON, missing or unknown IDs and unexpected fields. Render the recommendation from server-held candidate data. Recheck the selected slot and return the earliest available candidate by the same ordering if the model is disabled, times out after three seconds total, fails, returns invalid output, or selects a slot that became unavailable. Use a fresh availability read for fallback. Return an empty result when no candidates exist. The response indicates whether Gemini or the deterministic fallback selected the slot. The student confirms a booking separately through the booking service.
+Require a JSON object containing a candidate ID from the submitted set and a plain-text explanation of up to 240 characters. Reject malformed JSON, missing or unknown IDs, and unexpected fields. Return workstation and time data from a fresh availability read. Use the same sort order to choose the earliest available slot if Gemini is disabled, times out after three seconds total, fails, returns invalid output, or selects a slot that became unavailable. The response source is GEMINI, FALLBACK or NO_AVAILABILITY. The student can prefill the booking form from the result and confirms the booking separately.
 
 ## MCP
 
-Expose a custom read-only MCP endpoint within the Spring Boot process using Streamable HTTP. Use a configurable operator-issued bearer credential bound to a dedicated USER account for the coursework demo. Resolve the account server-side, require TLS outside loopback, and validate Origin when present. Keep this endpoint disabled until configured. Publish explicit input and output schemas and use the same catalog and availability services as REST.
+Expose an opt-in MCP endpoint within the Spring Boot process using stateless Streamable HTTP. Authenticate each request using the existing application session cookie and require a session CSRF token for POST requests. Accept only USER sessions and reject ADMIN sessions. Require TLS outside loopback and reject browser origins unless explicitly configured. Publish explicit input and output schemas. Each tool calls the same application service method as its REST counterpart.
 
 | Tool | Input | Result |
 | --- | --- | --- |
 | `list_laboratories` | Empty object | Enabled laboratory summaries |
-| `list_workstations` | Laboratory ID | Enabled workstation summaries in that laboratory |
-| `find_available_slots` | From, to, optional laboratory ID | Bookable workstation and slot summaries |
+| `list_available_workstations` | From, to, optional laboratory ID | Bookable workstation and slot summaries |
+| `my_bookings` | Empty object | Current user's bookings including cancellation history |
+| `create_booking` | Workstation ID, start, optional end | Confirmed booking subject to availability and conflict checks |
+| `cancel_booking` | Booking ID | Cancelled booking owned by the current user |
 
 ## Acceptance criteria
 
@@ -78,7 +84,7 @@ Expose a custom read-only MCP endpoint within the Spring Boot process using Stre
 | AC-5 | A student books multiple slots over time, and multiple students can book the same workstation at different times. Adjacent bookings succeed. A MySQL integration test using separate concurrent transactions confirms that only one overlapping request commits. |
 | AC-6 | Students can view and cancel their own future bookings. Another user's booking cannot be read or cancelled. Successful cancellation retains history and releases its slot. |
 | AC-7 | A valid Gemini selection returns an available candidate. Tests cover empty availability, invalid output, timeout, provider failure, disabled configuration and a slot taken during inference. Tests assert deterministic fallback and verify that model calls create no bookings. A configured demo exercises a live Gemini call. |
-| AC-8 | An MCP client initializes, discovers and invokes all three tools. Tests cover credential rejection, invalid arguments and matching catalog and availability behavior across REST and MCP. |
+| AC-8 | An MCP client initializes, discovers and invokes all five tools. Tests cover invalid arguments, USER session enforcement, and shared service behavior, including ownership and booking conflicts. |
 | AC-9 | JUnit 5 and Mockito cover business rules. Spring integration tests exercise security, Flyway and MySQL persistence. Maven verify generates a JaCoCo report. |
 | AC-10 | An English setup guide documents configuration, staff provisioning, run and test commands, and a demo walkthrough covering both roles, Gemini and MCP. |
 

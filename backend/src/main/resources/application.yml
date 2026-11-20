@@ -1,4 +1,19 @@
 spring:
+  ai:
+    mcp:
+      server:
+        enabled: ${MCP_ENABLED:false}
+        name: laboratory-reservation
+        version: "1.0.0"
+        type: SYNC
+        protocol: STATELESS
+        tool-callback-converter: false
+        annotation-scanner:
+          enabled: false
+        capabilities:
+          resource: false
+          prompt: false
+          completion: false
   mvc:
     problemdetails:
       enabled: true
@@ -33,5 +48,11 @@ server:
         http-only: true
         same-site: lax
 app:
+  mcp:
+    allowed-origin: ${MCP_ALLOWED_ORIGIN:}
+  gemini:
+    api-key: ${GEMINI_API_KEY:}
+    model: ${GEMINI_MODEL:gemini-3.1-flash-lite}
+    timeout: 3s
   google:
     enabled: ${GOOGLE_LOGIN_ENABLED:false}

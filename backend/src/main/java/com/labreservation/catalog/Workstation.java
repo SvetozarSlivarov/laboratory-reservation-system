@@ -49,6 +49,12 @@ public class Workstation {
         return id;
     }
 
+    void update(String code, String capabilities, Boolean enabled) {
+        if (code != null) this.code = code.strip();
+        if (capabilities != null) this.capabilities = capabilities.isEmpty() ? null : capabilities;
+        if (enabled != null) this.enabled = enabled;
+    }
+
     public Laboratory getLaboratory() {
         return laboratory;
     }

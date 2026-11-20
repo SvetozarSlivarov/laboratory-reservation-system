@@ -68,6 +68,11 @@ public class Booking {
         return id;
     }
 
+    void cancel(Instant now) {
+        status = BookingStatus.CANCELLED;
+        cancelledAt = now;
+    }
+
     public User getUser() {
         return user;
     }
