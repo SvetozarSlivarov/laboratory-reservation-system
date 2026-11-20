@@ -1,0 +1,37 @@
+spring:
+  mvc:
+    problemdetails:
+      enabled: true
+  application:
+    name: laboratory-reservation-system
+  datasource:
+    url: jdbc:mysql://${DB_HOST:127.0.0.1}:${DB_PORT:3306}/${DB_NAME}?connectionTimeZone=UTC&forceConnectionTimeZoneToSession=true
+    username: ${DB_USER}
+    password: ${DB_PASSWORD}
+  jpa:
+    open-in-view: false
+    properties:
+      hibernate.jdbc.time_zone: UTC
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    enabled: true
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
+server:
+  servlet:
+    session:
+      tracking-modes: cookie
+      cookie:
+        secure: ${SESSION_COOKIE_SECURE:true}
+        http-only: true
+        same-site: lax
+app:
+  google:
+    enabled: ${GOOGLE_LOGIN_ENABLED:false}
